@@ -1,0 +1,6 @@
+name: ${project.name}
+main: ${project.groupId}.pricer.SimplePricerPlugin
+version: ${project.version}
+author: A248
+description: Simple dynamic pricing addon for GUIShop.
+loadbefore: [GUIShop]
