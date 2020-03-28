@@ -116,6 +116,7 @@ public class SimplePricer implements DynamicPriceProvider, AutoClosable {
 				logger.warn("Could not create market state directory!");
 			}
 		}
+		items.clear();
 	}
 	
 }
