@@ -56,17 +56,20 @@ public class PricedItem extends DummyItem {
 		return new PricedItem(stock, spread);
 	}
 	
-	/* 
-	 * We want the integral beneath the pricing function
-	 * from a (the starting stock) to b (the ending stock).
+	/**
+	 * The integral of the pricing function
 	 * 
-	 * The integral from a to b of e^(-x/s) equals
-	 * -s*e^(-x/s) evaluated from a to b which equals
-	 * -s*e^(-b/s) minus -s*e^(-a/s) which equals
-	 * s*(e^(-a/s) - e^(-b/s))
-	 * 
+	 * @param a the lower limit
+	 * @param b the upper limit
+	 * @return the integral evaluated
 	 */
 	private double integral(double a, double b) {
+		/* 
+		 * The integral from a to b of e^(-x/s) equals
+		 * -s*e^(-x/s) evaluated from a to b which equals
+		 * -s*e^(-b/s) minus -s*e^(-a/s) which equals
+		 * s*(e^(-a/s) - e^(-b/s))
+		 */
 		return spread*(Math.exp(-a/spread) - Math.exp(-b/spread));
 	}
 	
