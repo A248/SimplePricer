@@ -19,7 +19,7 @@
 package space.arim.pricer;
 
 @SuppressWarnings("unused")
-class DummyItem {
+class BlankItem {
 
 	double calculateBuyPrice(int quantity) {
 		return 0D;

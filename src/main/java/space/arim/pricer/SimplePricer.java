@@ -37,14 +37,14 @@ public class SimplePricer implements DynamicPriceProvider, AutoClosable {
 	private final Logger logger;
 	private final File dataFolder;
 	private final SimpleConfig config;
-	private final ConcurrentHashMap<String, DummyItem> items = new ConcurrentHashMap<String, DummyItem>();
+	private final ConcurrentHashMap<String, BlankItem> items = new ConcurrentHashMap<String, BlankItem>();
 	
 	SimplePricer(Logger logger, File dataFolder) {
 		this.logger = logger;
 		this.dataFolder = dataFolder;
 		config = new SimpleConfig(dataFolder, "config.yml", "do-not-touch-version") {};
 	}
-	
+
 	void load() {
 		config.reload();
 		if (config.getBoolean("save-market-state")) {
@@ -54,7 +54,9 @@ public class SimplePricer implements DynamicPriceProvider, AutoClosable {
 				for (File dataFile : marketFiles) {
 					String itemString = dataFile.getName();
 					try (Scanner scanner = new Scanner(dataFile, "UTF-8")) {
-						items.put(itemString, PricedItem.forStockAndSpread(scanner.nextDouble(), scanner.nextDouble()));
+						if (items.put(itemString, new PartialItem(scanner.nextDouble())) != null) {
+							logger.warn("Item " + itemString + " has duplicate entries!");
+						}
 					} catch (IOException | NoSuchElementException ex) {
 						logger.warn("Error reading file " + dataFile.getPath(), ex);
 					}
@@ -62,9 +64,16 @@ public class SimplePricer implements DynamicPriceProvider, AutoClosable {
 			}
 		}
 	}
-	
-	private DummyItem getItem(String itemString, double base, double spread) {
-		return items.computeIfAbsent(itemString, (is) -> (base == 0D) ? new DummyItem() : PricedItem.forBaseAndSpread(base, spread));
+
+	private BlankItem getItem(String itemString, double base, double spread) {
+		return items.compute(itemString, (is, existing) -> {
+			if (existing == null) {
+				return (base == 0D) ? new BlankItem() : FullItem.fromBaseAndSpread(base, spread);
+			} else if (!(existing instanceof FullItem) && existing instanceof PartialItem) {
+				return ((PartialItem) existing).toFullItem(spread);
+			}
+			return existing;
+		});
 	}
 	
 	@Override
@@ -83,7 +92,6 @@ public class SimplePricer implements DynamicPriceProvider, AutoClosable {
 		 * Assuming GUIShop is working correctly, the key should already be contained in the map.
 		 * Meaning, if it isn't, something has gone horribly wrong.
 		 * In that case, we want a NPE to clearly indicate there's a bug.
-		 * 
 		 */
 		items.get(item).buyItem(quantity);
 	}
@@ -100,14 +108,14 @@ public class SimplePricer implements DynamicPriceProvider, AutoClosable {
 			File marketStateFolder = new File(dataFolder, "market-state");
 			if (marketStateFolder.isDirectory() || marketStateFolder.mkdirs()) {
 				items.forEach((itemString, itemPricing) -> {
-					if (itemPricing instanceof PricedItem) {
+					if (itemPricing instanceof FullItem) {
 						File dataFile = new File(marketStateFolder, itemString);
 						if (dataFile.exists() && !dataFile.delete()) {
 							logger.warn("Could not override data file " + dataFile.getPath());
 						} else {
-							PricedItem pricing = ((PricedItem) itemPricing);
+							FullItem pricing = ((FullItem) itemPricing);
 							FilesUtil.writeTo(dataFile, (writer) -> {
-								writer.append(Double.toString(pricing.getStock()) + '\n' + pricing.getSpread());
+								writer.append(Double.toString(pricing.getStock()));
 							}, (ex) -> logger.warn("Could not print data to file " + dataFile.getPath() + "!", ex));
 						}
 					}

@@ -31,17 +31,20 @@ import com.google.common.util.concurrent.AtomicDouble;
  * @author A248
  *
  */
-public class PricedItem extends DummyItem {
+public class FullItem extends PartialItem {
 
 	private final double spread;
-	private final AtomicDouble stock;
-	
-	private PricedItem(double stock, double spread) {
-		this.stock = new AtomicDouble(stock);
+
+	private FullItem(AtomicDouble stock, double spread) {
+		super(stock);
 		this.spread = spread;
 	}
-	
-	static PricedItem forBaseAndSpread(double base, double spread) {
+
+	private FullItem(double stock, double spread) {
+		this(new AtomicDouble(stock), spread);
+	}
+
+	static FullItem fromBaseAndSpread(double base, double spread) {
 		/*
 		 * Notice: b*e^(-x/s) = e^(lnb-x/s)=e^(-(x-slnb)/s),
 		 * meaning our price equation is simply shifted by a
@@ -49,13 +52,13 @@ public class PricedItem extends DummyItem {
 		 * 
 		 * Thus we can take b into the exponent and save a variable
 		 */
-		return new PricedItem(-spread*Math.log(base), spread);
+		return new FullItem(-spread*Math.log(base), spread);
 	}
-	
-	static PricedItem forStockAndSpread(double stock, double spread) {
-		return new PricedItem(stock, spread);
+
+	static FullItem forStockAndSpread(AtomicDouble stock, double spread) {
+		return new FullItem(stock, spread);
 	}
-	
+
 	/**
 	 * The integral of the pricing function
 	 * 
@@ -72,35 +75,36 @@ public class PricedItem extends DummyItem {
 		 */
 		return spread*(Math.exp(-a/spread) - Math.exp(-b/spread));
 	}
-	
+
 	@Override
 	double calculateBuyPrice(int quantity) {
 		double stock = this.stock.get();
 		return integral(stock - quantity, stock); // to get a positive, integrate forwards
 	}
-	
+
 	@Override
 	double calculateSellPrice(int quantity) {
 		double stock = this.stock.get();
 		return integral(stock, stock + quantity);
 	}
-	
+
 	@Override
 	void buyItem(int quantity) {
 		stock.addAndGet(quantity);
 	}
-	
+
 	@Override
 	void sellItem(int quantity) {
 		stock.addAndGet(-quantity);
 	}
-	
-	double getStock() {
-		return stock.get();
-	}
-	
+
 	double getSpread() {
 		return spread;
 	}
-	
+
+	@Override
+	FullItem toFullItem(double spread) {
+		throw new IllegalStateException("Already a full item");
+	}
+
 }
