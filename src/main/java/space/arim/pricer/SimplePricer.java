@@ -19,7 +19,10 @@
 package space.arim.pricer;
 
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.OutputStream;
+import java.io.OutputStreamWriter;
 import java.util.NoSuchElementException;
 import java.util.Scanner;
 import java.util.concurrent.ConcurrentHashMap;
@@ -30,7 +33,6 @@ import com.pablo67340.guishop.api.DynamicPriceProvider;
 import space.arim.universal.util.AutoClosable;
 
 import space.arim.api.config.SimpleConfig;
-import space.arim.api.util.FilesUtil;
 
 public class SimplePricer implements DynamicPriceProvider, AutoClosable {
 
@@ -114,9 +116,11 @@ public class SimplePricer implements DynamicPriceProvider, AutoClosable {
 							logger.warn("Could not override data file " + dataFile.getPath());
 						} else {
 							FullItem pricing = ((FullItem) itemPricing);
-							FilesUtil.writeTo(dataFile, (writer) -> {
+							try (OutputStream output = new FileOutputStream(dataFile); OutputStreamWriter writer = new OutputStreamWriter(output, "UTF-8")) {
 								writer.append(Double.toString(pricing.getStock()));
-							}, (ex) -> logger.warn("Could not print data to file " + dataFile.getPath() + "!", ex));
+							} catch (IOException ex) {
+								logger.warn("Could not print data to file " + dataFile.getPath() + "!", ex);
+							}
 						}
 					}
 				});
