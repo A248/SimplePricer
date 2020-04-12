@@ -23,9 +23,12 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
+import java.util.HashSet;
 import java.util.NoSuchElementException;
 import java.util.Scanner;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+
 import org.slf4j.Logger;
 
 import com.pablo67340.guishop.api.DynamicPriceProvider;
@@ -41,29 +44,66 @@ public class SimplePricer implements DynamicPriceProvider, AutoClosable {
 	private final SimpleConfig config;
 	private final ConcurrentHashMap<String, BlankItem> items = new ConcurrentHashMap<String, BlankItem>();
 	
+	/**
+	 * Used to help us load files asynchronously at startup,
+	 * <code>null</code> if we don't pass the parallelism threshold
+	 * 
+	 * To ensure that we've finished loading once server startup has completed,
+	 * we call <code>CompletableFuture.join</code> in {@link #load()}
+	 */
+	private volatile HashSet<CompletableFuture<?>> futures;
+	
+	private static final int ASYNC_IO_PARALLELISM_THRESHOLD = 10;
+	
 	SimplePricer(Logger logger, File dataFolder) {
 		this.logger = logger;
 		this.dataFolder = dataFolder;
 		config = new SimpleConfig(dataFolder, "config.yml", "do-not-touch-version") {};
-	}
-
-	void load() {
 		config.reload();
+		
+		// loading files
 		if (config.getBoolean("save-market-state")) {
 			File[] marketFiles = (new File(dataFolder, "market-state")).listFiles();
 			// if the market-state directory doesn't exist or isn't a dir, marketFiles must be null
 			if (marketFiles != null) {
+
+				if (marketFiles.length >= ASYNC_IO_PARALLELISM_THRESHOLD) {
+					futures = new HashSet<>();
+				}
 				for (File dataFile : marketFiles) {
-					String itemString = dataFile.getName();
-					try (Scanner scanner = new Scanner(dataFile, "UTF-8")) {
-						if (items.put(itemString, new PartialItem(scanner.nextDouble())) != null) {
-							logger.warn("Item " + itemString + " has duplicate entries!");
-						}
-					} catch (IOException | NoSuchElementException ex) {
-						logger.warn("Error reading file " + dataFile.getPath(), ex);
+
+					Runnable cmd = getFileLoadAction(dataFile);
+					if (futures != null) {
+						futures.add(CompletableFuture.runAsync(cmd));
+
+					} else {
+						cmd.run();
 					}
 				}
 			}
+		}
+	}
+
+	private Runnable getFileLoadAction(File dataFile) {
+		return () -> {
+			String itemString = dataFile.getName();
+			try (Scanner scanner = new Scanner(dataFile, "UTF-8")) {
+				if (items.put(itemString, new PartialItem(scanner.nextDouble())) != null) {
+					logger.warn("Item " + itemString + " has duplicate entries!");
+				}
+			} catch (IOException | NoSuchElementException ex) {
+				logger.warn("Error reading file " + dataFile.getPath(), ex);
+			}
+		};
+	}
+	
+	/**
+	 * Called after server startup has completed
+	 * 
+	 */
+	void load() {
+		if (futures != null) {
+			futures.forEach((f) -> f.join()); // await termination
 		}
 	}
 
@@ -109,7 +149,12 @@ public class SimplePricer implements DynamicPriceProvider, AutoClosable {
 		if (config.getBoolean("save-market-state")) {
 			File marketStateFolder = new File(dataFolder, "market-state");
 			if (marketStateFolder.isDirectory() || marketStateFolder.mkdirs()) {
-				items.forEach((itemString, itemPricing) -> {
+
+				/*
+				 * Use a larger parallelism threshold because some items are not
+				 * instances of FullItem, so don't need to be saved to disk
+				 */
+				items.forEach((ASYNC_IO_PARALLELISM_THRESHOLD * 3 / 2), (itemString, itemPricing) -> {
 					if (itemPricing instanceof FullItem) {
 						File dataFile = new File(marketStateFolder, itemString);
 						if (dataFile.exists() && !dataFile.delete()) {

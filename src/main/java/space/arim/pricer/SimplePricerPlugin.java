@@ -33,6 +33,7 @@ public class SimplePricerPlugin extends JavaPlugin {
 	public void onEnable() {
 		pricer = new SimplePricer(LoggerConverter.get().convert(getLogger()), getDataFolder());
 		getServer().getServicesManager().register(DynamicPriceProvider.class, pricer, this, ServicePriority.Low);
+		getServer().getScheduler().runTaskLater(this, pricer::load, 1L);
 	}
 	
 	@Override
