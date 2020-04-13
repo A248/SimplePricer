@@ -110,6 +110,7 @@ public class SimplePricer implements DynamicPriceProvider, AutoClosable {
 	void finishLoad() {
 		if (futures != null) {
 			futures.forEach((f) -> f.join()); // await termination
+			futures = null;
 		}
 	}
 
@@ -165,6 +166,7 @@ public class SimplePricer implements DynamicPriceProvider, AutoClosable {
 						File dataFile = new File(marketStateFolder, itemString);
 						if (dataFile.exists() && !dataFile.delete()) {
 							logger.warn("Could not override data file " + dataFile.getPath());
+
 						} else {
 							FullItem pricing = ((FullItem) itemPricing);
 							try (OutputStream output = new FileOutputStream(dataFile); OutputStreamWriter writer = new OutputStreamWriter(output, "UTF-8")) {
