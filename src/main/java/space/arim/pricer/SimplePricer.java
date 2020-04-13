@@ -49,7 +49,7 @@ public class SimplePricer implements DynamicPriceProvider, AutoClosable {
 	 * <code>null</code> if we don't pass the parallelism threshold
 	 * 
 	 * To ensure that we've finished loading once server startup has completed,
-	 * we call <code>CompletableFuture.join</code> in {@link #load()}
+	 * we call <code>CompletableFuture.join</code> in {@link #finishLoad()}
 	 */
 	private volatile HashSet<CompletableFuture<?>> futures;
 	
@@ -59,8 +59,27 @@ public class SimplePricer implements DynamicPriceProvider, AutoClosable {
 		this.logger = logger;
 		this.dataFolder = dataFolder;
 		config = new SimpleConfig(dataFolder, "config.yml", "do-not-touch-version") {};
+	}
+	
+	private Runnable getFileLoadAction(File dataFile) {
+		return () -> {
+			String itemString = dataFile.getName();
+			try (Scanner scanner = new Scanner(dataFile, "UTF-8")) {
+				if (items.put(itemString, new PartialItem(scanner.nextDouble())) != null) {
+					logger.warn("Item " + itemString + " has duplicate entries!");
+				}
+			} catch (IOException | NoSuchElementException ex) {
+				logger.warn("Error reading file " + dataFile.getPath(), ex);
+			}
+		};
+	}
+	
+	/**
+	 * Begin loading files
+	 * 
+	 */
+	void startLoad() {
 		config.reload();
-		
 		// loading files
 		if (config.getBoolean("save-market-state")) {
 			File[] marketFiles = (new File(dataFolder, "market-state")).listFiles();
@@ -83,25 +102,12 @@ public class SimplePricer implements DynamicPriceProvider, AutoClosable {
 			}
 		}
 	}
-
-	private Runnable getFileLoadAction(File dataFile) {
-		return () -> {
-			String itemString = dataFile.getName();
-			try (Scanner scanner = new Scanner(dataFile, "UTF-8")) {
-				if (items.put(itemString, new PartialItem(scanner.nextDouble())) != null) {
-					logger.warn("Item " + itemString + " has duplicate entries!");
-				}
-			} catch (IOException | NoSuchElementException ex) {
-				logger.warn("Error reading file " + dataFile.getPath(), ex);
-			}
-		};
-	}
 	
 	/**
 	 * Called after server startup has completed
 	 * 
 	 */
-	void load() {
+	void finishLoad() {
 		if (futures != null) {
 			futures.forEach((f) -> f.join()); // await termination
 		}
