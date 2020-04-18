@@ -85,23 +85,24 @@ public class SimplePricer implements DynamicPriceProvider, AutoClosable {
 			// if the market-state directory doesn't exist or isn't a dir, marketFiles must be null
 			if (marketFiles != null && marketFiles.length > 0) {
 
-				CompletableFuture<?>[] futures = null;
+				// Remains null if we don't pass the parallelism threshold
+				CompletableFuture<?>[] futureFiles = null;
 				if (marketFiles.length >= ASYNC_IO_PARALLELISM_THRESHOLD) {
-					futures = new CompletableFuture<?>[marketFiles.length];
+					futureFiles = new CompletableFuture<?>[marketFiles.length];
 				}
 				for (int n = 0; n < marketFiles.length; n++) {
 					File dataFile = marketFiles[n];
 
 					Runnable cmd = getFileLoadAction(dataFile);
-					if (futures != null) {
-						futures[n] = CompletableFuture.runAsync(cmd);
+					if (futureFiles != null) {
+						futureFiles[n] = CompletableFuture.runAsync(cmd);
 
 					} else {
 						cmd.run();
 					}
 				}
-				if (futures != null) {
-					future = CompletableFuture.allOf(futures);
+				if (futureFiles != null) {
+					future = CompletableFuture.allOf(futureFiles);
 				}
 			}
 		}
