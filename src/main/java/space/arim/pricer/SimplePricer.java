@@ -23,7 +23,6 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
-import java.util.HashSet;
 import java.util.NoSuchElementException;
 import java.util.Scanner;
 import java.util.concurrent.CompletableFuture;
@@ -45,13 +44,13 @@ public class SimplePricer implements DynamicPriceProvider, AutoClosable {
 	private final ConcurrentHashMap<String, BlankItem> items = new ConcurrentHashMap<String, BlankItem>();
 	
 	/**
-	 * Used to help us load files asynchronously at startup,
+	 * CompletableFuture representing loading files asynchronously at startup,
 	 * <code>null</code> if we don't pass the parallelism threshold
 	 * 
 	 * To ensure that we've finished loading once server startup has completed,
 	 * we call <code>CompletableFuture.join</code> in {@link #finishLoad()}
 	 */
-	private volatile HashSet<CompletableFuture<?>> futures;
+	private volatile CompletableFuture<?> future;
 	
 	private static final int ASYNC_IO_PARALLELISM_THRESHOLD = 10;
 	
@@ -84,20 +83,25 @@ public class SimplePricer implements DynamicPriceProvider, AutoClosable {
 		if (config.getBoolean("save-market-state")) {
 			File[] marketFiles = (new File(dataFolder, "market-state")).listFiles();
 			// if the market-state directory doesn't exist or isn't a dir, marketFiles must be null
-			if (marketFiles != null) {
+			if (marketFiles != null && marketFiles.length > 0) {
 
+				CompletableFuture<?>[] futures = null;
 				if (marketFiles.length >= ASYNC_IO_PARALLELISM_THRESHOLD) {
-					futures = new HashSet<>();
+					futures = new CompletableFuture<?>[marketFiles.length];
 				}
-				for (File dataFile : marketFiles) {
+				for (int n = 0; n < marketFiles.length; n++) {
+					File dataFile = marketFiles[n];
 
 					Runnable cmd = getFileLoadAction(dataFile);
 					if (futures != null) {
-						futures.add(CompletableFuture.runAsync(cmd));
+						futures[n] = CompletableFuture.runAsync(cmd);
 
 					} else {
 						cmd.run();
 					}
+				}
+				if (futures != null) {
+					future = CompletableFuture.allOf(futures);
 				}
 			}
 		}
@@ -108,9 +112,9 @@ public class SimplePricer implements DynamicPriceProvider, AutoClosable {
 	 * 
 	 */
 	void finishLoad() {
-		if (futures != null) {
-			futures.forEach((f) -> f.join()); // await termination
-			futures = null;
+		if (future != null) {
+			future.join(); // await termination
+			future = null;
 		}
 	}
 
