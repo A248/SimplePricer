@@ -32,11 +32,10 @@ import org.slf4j.Logger;
 
 import com.pablo67340.guishop.api.DynamicPriceProvider;
 
-import space.arim.universal.util.AutoClosable;
-
+import space.arim.api.concurrent.AsyncStartingModule;
 import space.arim.api.config.SimpleConfig;
 
-public class SimplePricer implements DynamicPriceProvider, AutoClosable {
+public class SimplePricer implements DynamicPriceProvider, AsyncStartingModule {
 
 	private final Logger logger;
 	private final File dataFolder;
@@ -77,7 +76,8 @@ public class SimplePricer implements DynamicPriceProvider, AutoClosable {
 	 * Begin loading files
 	 * 
 	 */
-	void startLoad() {
+	@Override
+	public void startLoad() {
 		config.reload();
 		// loading files
 		if (config.getBoolean("save-market-state")) {
@@ -112,7 +112,8 @@ public class SimplePricer implements DynamicPriceProvider, AutoClosable {
 	 * Called after server startup has completed
 	 * 
 	 */
-	void finishLoad() {
+	@Override
+	public void finishLoad() {
 		if (future != null) {
 			future.join(); // await termination
 			future = null;
