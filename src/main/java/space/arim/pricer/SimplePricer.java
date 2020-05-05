@@ -28,9 +28,9 @@ import java.util.Scanner;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 
-import org.slf4j.Logger;
-
 import com.pablo67340.guishop.api.DynamicPriceProvider;
+
+import space.arim.shaded.org.slf4j.Logger;
 
 import space.arim.api.concurrent.AsyncStartingModule;
 import space.arim.api.config.SimpleConfig;

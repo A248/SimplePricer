@@ -16,9 +16,9 @@
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		<maven.compiler.source>1.8</maven.compiler.source>
 		<maven.compiler.target>1.8</maven.compiler.target>
-		<arimapi.version>0.8.1-SNAPSHOT</arimapi.version>
+		<arimapi.version>0.9.1-SNAPSHOT</arimapi.version>
 		<universal.version>0.8.1-SNAPSHOT</universal.version>
-		<guishop.version>7.3.9</guishop.version>
+		<guishop.version>8.0-PRE</guishop.version>
 		<spigot.version>1.8.8-R0.1-SNAPSHOT</spigot.version>
 	</properties>
 	
@@ -114,11 +114,11 @@
 		</dependency>
 		<dependency>
 			<groupId>space.arim</groupId>
-			<artifactId>arimapi-core</artifactId>
+			<artifactId>arimapi-plugin</artifactId>
 			<version>${arimapi.version}</version>
 		</dependency>
 		<dependency>
-			<groupId>com.pablo67340.GUIShop</groupId>
+			<groupId>com.github.pablo67340</groupId>
 			<artifactId>GUIShop</artifactId>
 			<version>${guishop.version}</version>
 		</dependency>
@@ -136,8 +136,8 @@
 			<url>https://dl.cloudsmith.io/public/anand-beh/arim-repo/maven/</url>
 		</repository>
 		<repository>
-			<id>guishop-repo</id>
-			<url>http://nexus.theyeticave.net/content/repositories/pub_releases</url>
+			<id>jitpack.io</id>
+			<url>https://jitpack.io</url>
 		</repository>
 		<repository>
 			<id>spigot-repo</id>
