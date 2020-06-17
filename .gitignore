@@ -5,9 +5,12 @@
 
 target/
 dependency-reduced-pom.xml
+pom.xml.versionsBackup
 
 ### Eclipse ###
 
+.classpath
+.project
 bin/
 .metadata
 tmp/
